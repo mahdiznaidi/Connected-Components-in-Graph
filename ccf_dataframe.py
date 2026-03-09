@@ -1,14 +1,14 @@
 """
-CCF (Connected Components via MapReduce) implemented with PySpark DataFrames.
+CCF (Connected Components via MapReduce) implemente avec des DataFrames PySpark.
 
-This module follows the two phases described in the paper:
+Ce module suit les deux phases decrites dans le papier:
 1) CCF-Iterate
 2) CCF-Dedup
 
-Input graph format:
+Format du graphe en entree:
     DataFrame[src, dst]
 
-Output format:
+Format de sortie:
     DataFrame[node, component_id]
 """
 
@@ -25,7 +25,7 @@ from pyspark.sql import functions as F
 
 @dataclass
 class IterationStats:
-    """Bookkeeping information for one CCF iteration."""
+    """Informations de suivi pour une iteration CCF."""
 
     iteration: int
     added_edges: int
@@ -34,7 +34,7 @@ class IterationStats:
 
 
 def _require_edge_columns(edges_df: DataFrame) -> None:
-    """Validate that the input DataFrame has the expected edge schema."""
+    """Valide que le DataFrame en entree possede le schema d'arcs attendu."""
     required = {"src", "dst"}
     missing = required.difference(edges_df.columns)
     if missing:
@@ -45,11 +45,11 @@ def _require_edge_columns(edges_df: DataFrame) -> None:
 
 def normalize_edges(edges_df: DataFrame) -> DataFrame:
     """
-    Normalize input edges into an undirected relation.
+    Normalise les arcs d'entree en une relation non orientee.
 
-    Why:
-    - Connected components are defined on an undirected graph.
-    - We remove duplicate edges to keep each iteration deterministic and stable.
+    Pourquoi:
+    - Les composantes connexes sont definies sur un graphe non oriente.
+    - On retire les doublons pour garder des iterations deterministes et stables.
     """
     _require_edge_columns(edges_df)
 
@@ -63,11 +63,11 @@ def normalize_edges(edges_df: DataFrame) -> DataFrame:
 
 def build_initial_adjacency(edges_df: DataFrame) -> DataFrame:
     """
-    Build initial adjacency pairs (node, neighbor) with explicit self-loops.
+    Construit les couples d'adjacence initiaux (node, neighbor) avec boucles explicites.
 
-    The CCF paper emits (l, l) during iterate. Keeping self-loops directly in the
-    adjacency relation makes this behavior explicit and guarantees every node
-    remains present across iterations.
+    Le papier CCF emet (l, l) pendant l'iteration. Garder les boucles dans
+    la relation d'adjacence rend ce comportement explicite et garantit que
+    chaque noeud reste present au fil des iterations.
     """
     undirected = normalize_edges(edges_df)
     adjacency = undirected.select(F.col("src").alias("node"), F.col("dst").alias("neighbor"))
@@ -79,40 +79,40 @@ def build_initial_adjacency(edges_df: DataFrame) -> DataFrame:
 
 def ccf_iterate(adjacency_df: DataFrame) -> DataFrame:
     """
-    CCF-Iterate phase.
+    Phase CCF-Iterate.
 
-    For each node l and its neighborhood N_l:
-    - compute m = min(N_l)
-    - emit (m, n) for every n in N_l
-    - emit (n, m) for every n in N_l where n != m
-    - keep (l, l) self-loop
+    Pour chaque noeud l et son voisinage N_l:
+    - calcule m = min(N_l)
+    - emet (m, n) pour chaque n dans N_l
+    - emet (n, m) pour chaque n dans N_l avec n != m
+    - conserve la boucle (l, l)
 
-    Required DataFrame operators used here:
+    Operateurs DataFrame requis ici:
     - groupBy + agg(min)
     - join
     - withColumn
     """
-    # 1) Compute m = min(neighbors) per node.
+    # 1) Calcule m = min(neighbors) pour chaque noeud.
     min_neighbors = adjacency_df.groupBy("node").agg(F.min("neighbor").alias("min_neighbor"))
 
-    # 2) Re-attach each node's minimum to every (node, neighbor) pair.
+    # 2) Rattache le minimum de chaque noeud a chaque couple (node, neighbor).
     joined = adjacency_df.join(min_neighbors, on="node", how="inner").withColumn(
         "is_min_neighbor", F.col("neighbor") == F.col("min_neighbor")
     )
 
-    # 3) Emit (m, n): pull all neighbors under the minimum label.
+    # 3) Emet (m, n): rattache tous les voisins a l'etiquette minimale.
     emit_to_min = joined.select(
         F.col("min_neighbor").alias("node"),
         F.col("neighbor").alias("neighbor"),
     )
 
-    # 4) Emit (n, m) only when n != m (same condition as in the paper).
+    # 4) Emet (n, m) seulement si n != m (meme condition que dans le papier).
     emit_reverse = joined.filter(~F.col("is_min_neighbor")).select(
         F.col("neighbor").alias("node"),
         F.col("min_neighbor").alias("neighbor"),
     )
 
-    # 5) Explicitly keep self-loops so every node survives the next iteration.
+    # 5) Conserve explicitement les boucles pour garder tous les noeuds.
     self_loops = min_neighbors.select(F.col("node"), F.col("node").alias("neighbor"))
 
     return emit_to_min.unionByName(emit_reverse).unionByName(self_loops)
@@ -120,18 +120,18 @@ def ccf_iterate(adjacency_df: DataFrame) -> DataFrame:
 
 def ccf_dedup(previous_adjacency: DataFrame, candidates: DataFrame) -> Tuple[DataFrame, int, int, bool]:
     """
-    CCF-Dedup phase.
+    Phase CCF-Dedup.
 
-    Steps:
-    - remove duplicate pairs
-    - detect convergence by checking if edge-set changed compared to previous iteration
+    Etapes:
+    - retire les couples dupliques
+    - detecte la convergence en comparant l'ensemble d'arcs a l'iteration precedente
     """
     next_adjacency = candidates.dropDuplicates(["node", "neighbor"])
 
-    # Added edges: present in next, absent in previous.
+    # Arcs ajoutes: presents dans next, absents dans previous.
     added_edges = next_adjacency.join(previous_adjacency, on=["node", "neighbor"], how="left_anti").count()
 
-    # Removed edges: present in previous, absent in next.
+    # Arcs retires: presents dans previous, absents dans next.
     removed_edges = previous_adjacency.join(next_adjacency, on=["node", "neighbor"], how="left_anti").count()
 
     converged = (added_edges + removed_edges) == 0
@@ -145,18 +145,18 @@ def run_ccf_dataframe(
     checkpoint_every: int | None = None,
 ) -> Tuple[DataFrame, list[IterationStats]]:
     """
-    Execute CCF until stabilization.
+    Execute CCF jusqu'a stabilisation.
 
-    Returns:
-    - components DataFrame[node, component_id]
-    - per-iteration statistics
+    Retourne:
+    - un DataFrame components[node, component_id]
+    - les statistiques par iteration
 
-    Optional performance control:
-    - checkpoint_every: if set (e.g. 1), periodically truncates Spark lineage
-      to avoid very large logical plans on long iterative runs.
+    Controle de performance optionnel:
+    - checkpoint_every: si defini (ex: 1), tronque periodiquement la lineage Spark
+      pour eviter des plans logiques trop volumineux sur des executions longues.
     """
     adjacency = build_initial_adjacency(edges_df).cache()
-    adjacency.count()  # materialize cache
+    adjacency.count()  # materialise le cache
 
     history: list[IterationStats] = []
 
@@ -164,12 +164,12 @@ def run_ccf_dataframe(
         candidates = ccf_iterate(adjacency)
         next_adjacency, added, removed, converged = ccf_dedup(adjacency, candidates)
 
-        # Optional lineage truncation for long iterative workloads (benchmarks).
+        # Troncature optionnelle de lineage pour les charges iteratives longues.
         if checkpoint_every is not None and checkpoint_every > 0 and (iteration % checkpoint_every == 0):
             next_adjacency = next_adjacency.localCheckpoint(eager=False)
 
         next_adjacency = next_adjacency.cache()
-        next_adjacency.count()  # materialize before releasing previous cache
+        next_adjacency.count()  # materialise avant de liberer l'ancien cache
         adjacency.unpersist()
 
         stats = IterationStats(
@@ -201,9 +201,9 @@ def run_ccf_dataframe(
 
 
 def _demo() -> None:
-    """Small local demo runnable with `python ccf_dataframe.py`."""
-    # On Windows lab setups, Spark often defaults to `python3` even when only
-    # `python` exists. We force worker/driver executables to the current one.
+    """Petite demo locale executable avec `python ccf_dataframe.py`."""
+    # Sur certains postes Windows, Spark prend `python3` par defaut meme
+    # si seul `python` existe. On force les executables worker/driver.
     python_exec = sys.executable
     os.environ.setdefault("PYSPARK_PYTHON", python_exec)
     os.environ.setdefault("PYSPARK_DRIVER_PYTHON", python_exec)
@@ -219,7 +219,7 @@ def _demo() -> None:
     )
     spark.sparkContext.setLogLevel("ERROR")
 
-    # Three components: {1,2,3}, {4,5}, {6}
+    # Trois composantes: {1,2,3}, {4,5}, {6}
     demo_edges = [(1, 2), (2, 3), (4, 5), (6, 6)]
     edges_df = spark.createDataFrame(demo_edges, ["src", "dst"])
 

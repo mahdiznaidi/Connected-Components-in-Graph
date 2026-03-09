@@ -1,12 +1,12 @@
 """
-Benchmark runner for CCF DataFrame implementation on growing graph sizes.
+Runner de benchmark pour l'implementation CCF DataFrame sur des tailles croissantes.
 
-Requirements implemented:
-- Graph sizes: 1_000, 10_000, 100_000, 500_000 nodes
-- Random graph generation with NetworkX gnm_random_graph
-- Metrics: execution time and number of CCF iterations
-- CSV output: benchmark_results.csv
-- Plot output: benchmark_plot.png
+Exigences implementees:
+- tailles de graphe: 1_000, 10_000, 100_000, 500_000 noeuds
+- generation aleatoire avec NetworkX gnm_random_graph
+- metriques: temps d'execution et nombre d'iterations CCF
+- sortie CSV: benchmark_results.csv
+- sortie graphique: benchmark_plot.png
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-# Must be set before importing numerical/scientific libraries.
+# Doit etre defini avant l'import des bibliotheques numeriques/scientifiques.
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -34,15 +34,15 @@ from pyspark.sql import SparkSession
 from ccf_dataframe import run_ccf_dataframe
 
 
-# Fixed benchmark sizes requested by the user (default).
+# Tailles de benchmark fixes demandees (par defaut).
 DEFAULT_GRAPH_SIZES = [1_000, 10_000, 100_000, 500_000]
 
-# Number of edges for each graph: m = EDGE_FACTOR * n.
-# A sparse regime keeps generation and Spark runtime tractable.
+# Nombre d'arcs par graphe: m = EDGE_FACTOR * n.
+# Un regime sparse garde generation et runtime Spark tractables.
 EDGE_FACTOR = 1.0
 MAX_ITERATIONS = 30
 
-# Deterministic seed for reproducibility.
+# Seed deterministe pour la reproductibilite.
 BASE_SEED = 42
 
 CSV_PATH = Path("benchmark_results.csv")
@@ -62,27 +62,27 @@ class BenchmarkRow:
 
 def generate_graph_edges(num_nodes: int, edge_factor: float, seed: int) -> List[tuple[int, int]]:
     """
-    Generate an undirected random graph with gnm_random_graph and return edges.
+    Genere un graphe aleatoire non oriente avec gnm_random_graph et retourne les arcs.
 
-    We also add self-loops (u, u) for all nodes so isolated nodes are preserved
-    by the CCF input edge relation.
+    On ajoute aussi des boucles (u, u) pour tous les noeuds afin de preserver
+    les noeuds isoles dans la relation d'arcs d'entree de CCF.
     """
     num_edges = max(1, int(edge_factor * num_nodes))
     g = nx.gnm_random_graph(n=num_nodes, m=num_edges, seed=seed)
 
-    # Convert to integer tuples.
+    # Conversion en tuples entiers.
     edges = [(int(u), int(v)) for u, v in g.edges()]
-    # Explicitly include each node with a self-loop.
+    # Ajoute explicitement chaque noeud avec une boucle.
     edges.extend((node, node) for node in range(num_nodes))
 
-    # Release heavy NetworkX structure before Spark work starts.
+    # Libere la structure NetworkX avant le traitement Spark.
     del g
     gc.collect()
     return edges
 
 
 def write_csv(rows: Iterable[BenchmarkRow], path: Path) -> None:
-    """Write benchmark rows to CSV."""
+    """Ecrit les lignes de benchmark dans un CSV."""
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(
@@ -111,10 +111,10 @@ def write_csv(rows: Iterable[BenchmarkRow], path: Path) -> None:
 
 
 def plot_results(rows: List[BenchmarkRow], output_path: Path) -> None:
-    """Plot scalability curve: execution time vs number of nodes."""
+    """Trace la courbe de scalabilite: temps d'execution vs nombre de noeuds."""
     successful = [r for r in rows if r.status == "ok"]
     if not successful:
-        # Create an empty figure with message to avoid silent failure.
+        # Cree une figure vide avec message pour eviter un echec silencieux.
         plt.figure(figsize=(9, 5))
         plt.text(0.5, 0.5, "No successful benchmark run", ha="center", va="center")
         plt.axis("off")
@@ -135,13 +135,13 @@ def plot_results(rows: List[BenchmarkRow], output_path: Path) -> None:
     ax1.set_xscale("log")
     ax1.grid(True, linestyle="--", alpha=0.35)
 
-    # Second axis to show iteration count evolution.
+    # Deuxieme axe pour afficher l'evolution du nombre d'iterations.
     ax2 = ax1.twinx()
     ax2.plot(x, y_iter, marker="s", linewidth=2, label="Iterations", color="#bb3e03")
     ax2.set_ylabel("Iterations", color="#bb3e03")
     ax2.tick_params(axis="y", labelcolor="#bb3e03")
 
-    # Combined legend.
+    # Legende combinee.
     lines = ax1.get_lines() + ax2.get_lines()
     labels = [line.get_label() for line in lines]
     ax1.legend(lines, labels, loc="upper left")
@@ -153,11 +153,11 @@ def plot_results(rows: List[BenchmarkRow], output_path: Path) -> None:
 
 
 def create_spark_session(master: str, shuffle_partitions: int) -> SparkSession:
-    """Create a Spark session configured for local benchmarking."""
+    """Cree une session Spark configuree pour le benchmark local."""
     python_exec = sys.executable
     os.environ.setdefault("PYSPARK_PYTHON", python_exec)
     os.environ.setdefault("PYSPARK_DRIVER_PYTHON", python_exec)
-    # Keep worker numerical thread pools constrained.
+    # Contraint les pools de threads numeriques cote workers.
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
@@ -189,39 +189,39 @@ def parse_sizes(raw: str) -> List[int]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="CCF DataFrame benchmark runner.")
+    parser = argparse.ArgumentParser(description="Runner de benchmark CCF DataFrame.")
     parser.add_argument(
         "--sizes",
         default="1000,10000,100000,500000",
-        help="Comma-separated node sizes. Default: 1000,10000,100000,500000",
+        help="Tailles de noeuds separees par des virgules. Defaut: 1000,10000,100000,500000",
     )
     parser.add_argument(
         "--edge-factor",
         type=float,
         default=EDGE_FACTOR,
-        help="Edges per node factor for gnm_random_graph (m = factor * n). Default: 1.0",
+        help="Facteur arcs/noeud pour gnm_random_graph (m = factor * n). Defaut: 1.0",
     )
     parser.add_argument(
         "--max-iterations",
         type=int,
         default=MAX_ITERATIONS,
-        help="Maximum CCF iterations. Default: 30",
+        help="Nombre maximal d'iterations CCF. Defaut: 30",
     )
     parser.add_argument(
         "--master",
         default="local[2]",
-        help="Spark master string. Default: local[2]",
+        help="Valeur du master Spark. Defaut: local[2]",
     )
     parser.add_argument(
         "--shuffle-partitions",
         type=int,
         default=8,
-        help="Spark shuffle partitions. Default: 8",
+        help="Nombre de partitions de shuffle Spark. Defaut: 8",
     )
     parser.add_argument(
         "--verbose-iterations",
         action="store_true",
-        help="Print per-iteration CCF logs.",
+        help="Affiche les logs CCF a chaque iteration.",
     )
     return parser.parse_args()
 
@@ -297,7 +297,7 @@ def main() -> None:
                     spark.stop()
                 except Exception:
                     pass
-            # Persist intermediate progress even if later sizes fail.
+            # Persiste la progression intermediaire meme si une taille echoue.
             write_csv(rows, CSV_PATH)
             gc.collect()
 

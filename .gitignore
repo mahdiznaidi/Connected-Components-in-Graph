@@ -2,18 +2,17 @@
 __pycache__/
 *.py[cod]
 
-# Spark / Scala build artifacts
+# Artefacts de build Spark / Scala
 scala_out/
 .metals/
 .scala-build/
 
-# IDE / editor
+# IDE / editeur
 .vscode/
 
-# Runtime logs / crash dumps
+# Logs d'execution / dumps de crash
 hs_err_pid*.log
 replay_pid*.log
 
-# Local archives / compiled outputs
+# Archives locales / sorties compilees
 *.jar
-

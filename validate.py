@@ -1,11 +1,11 @@
 """
-Cross-validation script for CCF implementations.
+Script de validation croisee pour les implementations CCF.
 
-What this script checks:
-1) PySpark DataFrame CCF result
-2) Python RDD reference result (same algorithmic logic)
-3) Optional external RDD implementation (if module provided)
-4) Expected components on a known toy graph
+Ce que ce script verifie:
+1) le resultat CCF DataFrame PySpark
+2) le resultat RDD Python de reference (meme logique algorithmique)
+3) une implementation RDD externe optionnelle (si module fourni)
+4) les composantes attendues sur un graphe jouet connu
 """
 
 from __future__ import annotations
@@ -38,9 +38,9 @@ class ValidationReport:
 
 def build_test_graph() -> Tuple[List[Edge], ComponentMap]:
     """
-    Build a deterministic graph with 10 nodes and known connected components.
+    Construit un graphe deterministe de 10 noeuds avec composantes connues.
 
-    Components:
+    Composantes:
     - {1,2,3}  -> component id 1
     - {4,5}    -> component id 4
     - {6,7,8}  -> component id 6
@@ -54,10 +54,10 @@ def build_test_graph() -> Tuple[List[Edge], ComponentMap]:
         (6, 7),
         (7, 8),
         (8, 6),
-        # self-loops to keep isolated nodes explicit in edge-list representation
+        # Boucles pour garder explicites les noeuds isoles dans la liste d'arcs.
         (9, 9),
         (10, 10),
-        # duplicates / reverse duplicates to test dedup robustness
+        # Doublons et doublons inverses pour tester la robustesse de la dedup.
         (2, 1),
         (5, 4),
     ]
@@ -84,21 +84,21 @@ def run_ccf_rdd_reference(
     verbose: bool = False,
 ) -> ComponentMap:
     """
-    Spark RDD reference implementation with the same CCF logic.
+    Implementation de reference Spark RDD avec la meme logique CCF.
 
-    Implementation note:
-    For tiny validation graphs, we intentionally use 1 partition and compare
-    edge sets on the driver to keep runtime predictable on constrained laptops.
+    Note d'implementation:
+    Pour de petits graphes de validation, on utilise volontairement 1 partition
+    et on compare les ensembles d'arcs sur le driver pour un temps stable.
     """
     sc = spark.sparkContext
     raw_edges = sc.parallelize(list(edges), 1)
 
-    # Undirected + deduplicated relation.
+    # Relation non orientee + deduplication.
     undirected = raw_edges.flatMap(
         lambda e: [e] if e[0] == e[1] else [e, (e[1], e[0])]
     ).distinct(numPartitions=1)
 
-    # Build adjacency with self-loops.
+    # Construit l'adjacence avec boucles.
     nodes = undirected.flatMap(lambda e: [e[0], e[1]]).distinct(numPartitions=1)
     adjacency = undirected.union(nodes.map(lambda n: (n, n))).distinct(numPartitions=1)
     current_edges = set((int(a), int(b)) for a, b in adjacency.collect())
@@ -140,8 +140,8 @@ def run_ccf_rdd_reference(
 
 def load_external_rdd_runner(module_name: Optional[str]) -> Optional[ExternalRunner]:
     """
-    Optional import helper for teammate RDD implementation.
-    Expected callable names (first found is used):
+    Helper d'import optionnel pour l'implementation RDD du coequipier.
+    Noms de fonctions attendus (la premiere trouvee est utilisee):
     - run_ccf_rdd
     - connected_components_rdd
     - connected_components
@@ -162,7 +162,7 @@ def load_external_rdd_runner(module_name: Optional[str]) -> Optional[ExternalRun
 
 def normalize_external_result(raw_result: object) -> ComponentMap:
     """
-    Normalize multiple possible return types from an external runner:
+    Normalise plusieurs types de retours possibles d'un runner externe:
     - dict[node -> component_id]
     - list/tuple of (node, component_id)
     """
@@ -173,12 +173,12 @@ def normalize_external_result(raw_result: object) -> ComponentMap:
         return {int(node): int(comp) for node, comp in raw_result}
 
     raise TypeError(
-        "Unsupported external runner result type. Use dict or list/tuple[(node, component_id)]."
+        "Type de retour externe non supporte. Utiliser dict ou list/tuple[(node, component_id)]."
     )
 
 
 def diff_components(left: ComponentMap, right: ComponentMap) -> List[str]:
-    """Return human-readable diff lines for component maps."""
+    """Retourne des lignes de diff lisibles pour des maps de composantes."""
     lines: List[str] = []
     all_nodes = sorted(set(left.keys()).union(right.keys()))
     for node in all_nodes:
@@ -190,14 +190,14 @@ def diff_components(left: ComponentMap, right: ComponentMap) -> List[str]:
 
 
 def print_component_map(title: str, mapping: ComponentMap) -> None:
-    """Print a compact sorted component mapping."""
+    """Affiche une map de composantes triee de maniere compacte."""
     print(title)
     for node in sorted(mapping.keys()):
         print(f"  node={node:>2} -> component_id={mapping[node]}")
 
 
 def run_validation(external_module: Optional[str], verbose: bool) -> ValidationReport:
-    # Spark workers must use a valid Python executable on this machine.
+    # Les workers Spark doivent utiliser un executable Python valide sur ce poste.
     python_exec = sys.executable
     os.environ.setdefault("PYSPARK_PYTHON", python_exec)
     os.environ.setdefault("PYSPARK_DRIVER_PYTHON", python_exec)
@@ -218,7 +218,7 @@ def run_validation(external_module: Optional[str], verbose: bool) -> ValidationR
         edges, expected = build_test_graph()
         edges_df = spark.createDataFrame(edges, ["src", "dst"])
 
-        # 1) DataFrame implementation under test.
+        # 1) Implementation DataFrame testee.
         dataframe_components_df, dataframe_history = run_ccf_dataframe(
             edges_df, max_iterations=20, verbose=verbose
         )
@@ -227,12 +227,12 @@ def run_validation(external_module: Optional[str], verbose: bool) -> ValidationR
             for row in dataframe_components_df.collect()
         }
 
-        # 2) Internal RDD reference implementation.
+        # 2) Implementation RDD de reference interne.
         rdd_reference_map = run_ccf_rdd_reference(
             spark, edges, max_iterations=20, verbose=verbose
         )
 
-        # 3) Optional external RDD module from teammate.
+        # 3) Module RDD externe optionnel (coequipier).
         external_checked = False
         external_ok = True
         external_map: Optional[ComponentMap] = None
@@ -243,12 +243,12 @@ def run_validation(external_module: Optional[str], verbose: bool) -> ValidationR
             external_map = normalize_external_result(raw_external)
             external_ok = external_map == dataframe_map
 
-        # 4) Compute comparisons.
+        # 4) Calcule les comparaisons.
         dataframe_ok = dataframe_map == expected
         rdd_reference_ok = rdd_reference_map == expected
         dataframe_vs_rdd_ok = dataframe_map == rdd_reference_map
 
-        # 5) Clear report.
+        # 5) Rapport clair.
         print("=== CCF Cross Validation Report ===")
         print(f"DataFrame iterations executed : {len(dataframe_history)}")
         print(f"DataFrame vs expected         : {'OK' if dataframe_ok else 'FAIL'}")
@@ -297,20 +297,20 @@ def run_validation(external_module: Optional[str], verbose: bool) -> ValidationR
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="CCF DataFrame/RDD cross-validation script.")
+    parser = argparse.ArgumentParser(description="Script de validation croisee CCF DataFrame/RDD.")
     parser.add_argument(
         "--external-rdd-module",
         type=str,
         default=None,
         help=(
-            "Optional Python module name that exposes an RDD runner "
+            "Nom optionnel d'un module Python exposant un runner RDD "
             "(run_ccf_rdd / connected_components_rdd / connected_components / run)."
         ),
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Print per-iteration logs for DataFrame and RDD reference runs.",
+        help="Affiche les logs par iteration pour DataFrame et RDD de reference.",
     )
     return parser.parse_args()
 

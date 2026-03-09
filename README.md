@@ -1,63 +1,63 @@
 # Connected Components in Graph (CCF)
 
-This repository contains our Spark implementation of the CCF algorithm
+Ce depot contient notre implementation Spark de l'algorithme CCF
 (Connected Components in Graphs via MapReduce).
 
-Paper reference:
+Reference du papier:
 https://www.cse.unr.edu/~hkardes/pdfs/ccf.pdf
 
-## My part (P2)
+## Ma partie (P2)
 
-Implemented files:
+Fichiers implementes:
 
-- `ccf_dataframe.py`: full CCF implementation in PySpark DataFrame
+- `ccf_dataframe.py`: implementation complete de CCF en PySpark DataFrame
   - CCF-Iterate
   - CCF-Dedup
-  - iterative loop until convergence
-  - output as `(node, component_id)`
-- `CCFScala.scala`: CCF implementation in Scala Spark RDD
-- `validate.py`: cross-validation script (DataFrame vs RDD reference, with optional external RDD module)
-- `benchmark_ccf.py`: scalability benchmark runner using `networkx.gnm_random_graph`
-- `benchmark_results.csv`: benchmark output (execution time + iterations)
-- `benchmark_plot.png`: scalability curve
+  - boucle iterative jusqu'a convergence
+  - sortie au format `(node, component_id)`
+- `CCFScala.scala`: implementation CCF en Scala Spark RDD
+- `validate.py`: script de validation croisee (DataFrame vs RDD de reference, avec module RDD externe optionnel)
+- `benchmark_ccf.py`: script de benchmark de scalabilite avec `networkx.gnm_random_graph`
+- `benchmark_results.csv`: sortie benchmark (temps d'execution + iterations)
+- `benchmark_plot.png`: courbe de scalabilite
 
-## Requirements
+## Prerequis
 
-- Python 3.9+ (or compatible)
+- Python 3.9+ (ou compatible)
 - PySpark 3.x
-- Scala 2.12 + Spark 3.x (for Scala execution)
-- Python packages:
+- Scala 2.12 + Spark 3.x (pour l'execution Scala)
+- Packages Python:
   - `pyspark`
   - `networkx`
   - `matplotlib`
 
-## Run validation
+## Lancer la validation
 
 ```bash
 python validate.py
 ```
 
-Optional external RDD module:
+Module RDD externe optionnel:
 
 ```bash
 python validate.py --external-rdd-module your_module_name
 ```
 
-## Run benchmark
+## Lancer le benchmark
 
-Default requested sizes:
+Tailles par defaut demandees:
 
 ```bash
 python benchmark_ccf.py --sizes 1000,10000,100000,500000
 ```
 
-Outputs:
+Sorties:
 
 - `benchmark_results.csv`
 - `benchmark_plot.png`
 
 ## Notes
 
-- Graph generation for benchmarks uses `networkx.gnm_random_graph`.
-- In constrained local environments, very large runs may require tuning
-  (`--edge-factor`, Spark partitions, and available disk space).
+- La generation de graphe pour les benchmarks utilise `networkx.gnm_random_graph`.
+- En environnement local contraint, les tres gros runs peuvent necessiter un ajustement
+  (`--edge-factor`, partitions Spark, et espace disque disponible).

@@ -2,21 +2,21 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 
 /**
- * CCF (Connected Components via MapReduce) implemented with Spark RDD in Scala.
+ * CCF (Connected Components via MapReduce) implemente avec Spark RDD en Scala.
  *
- * Input:
- *   RDD[(src, dst)] where each tuple is an edge.
+ * Entree:
+ *   RDD[(src, dst)] ou chaque tuple represente un arc.
  *
- * Output:
- *   RDD[(node, componentId)] where componentId is the minimum node id of the component.
+ * Sortie:
+ *   RDD[(node, componentId)] ou componentId est l'id minimal de la composante.
  */
 object CCFScala {
 
   type Edge = (Long, Long)
 
   /**
-   * Convert input edges into an undirected relation and remove duplicates.
-   * This mirrors the graph normalization used in the PySpark DataFrame version.
+   * Convertit les arcs en relation non orientee et retire les doublons.
+   * Cela reproduit la normalisation de graphe de la version PySpark DataFrame.
    */
   def normalizeEdges(edges: RDD[Edge]): RDD[Edge] = {
     val directed = edges.flatMap {
@@ -27,8 +27,8 @@ object CCFScala {
   }
 
   /**
-   * Build the (node, neighbor) adjacency relation with explicit self-loops.
-   * Self-loops guarantee each node remains present in every iteration.
+   * Construit la relation d'adjacence (node, neighbor) avec boucles explicites.
+   * Les boucles garantissent la presence de chaque noeud a chaque iteration.
    */
   def buildInitialAdjacency(edges: RDD[Edge]): RDD[Edge] = {
     val undirected = normalizeEdges(edges)
@@ -38,13 +38,13 @@ object CCFScala {
   }
 
   /**
-   * CCF-Iterate phase.
+   * Phase CCF-Iterate.
    *
-   * For each node l with neighborhood N_l:
+   * Pour chaque noeud l de voisinage N_l:
    *   m = min(N_l)
-   *   emit (m, n) for all n in N_l
-   *   emit (n, m) for all n in N_l where n != m
-   *   keep (l, l)
+   *   emet (m, n) pour tout n dans N_l
+   *   emet (n, m) pour tout n dans N_l avec n != m
+   *   conserve (l, l)
    */
   def ccfIterate(adjacency: RDD[Edge]): RDD[Edge] = {
     val minNeighborByNode: RDD[(Long, Long)] =
@@ -66,7 +66,7 @@ object CCFScala {
   }
 
   /**
-   * Container for one deduplication step output.
+   * Conteneur pour la sortie d'une etape de deduplication.
    */
   final case class DedupResult(
       adjacency: RDD[Edge],
@@ -76,13 +76,13 @@ object CCFScala {
   )
 
   /**
-   * CCF-Dedup phase:
-   * - remove duplicate edge pairs
-   * - detect convergence by checking whether edge-set changed
+   * Phase CCF-Dedup:
+   * - retire les couples d'arcs dupliques
+   * - detecte la convergence en verifiant si l'ensemble d'arcs change
    */
   def ccfDedup(previousAdjacency: RDD[Edge], candidates: RDD[Edge]): DedupResult = {
     val nextAdjacency = candidates.distinct().cache()
-    nextAdjacency.count() // materialize cache once
+    nextAdjacency.count() // materialise le cache une fois
 
     val addedEdges = nextAdjacency.subtract(previousAdjacency).count()
     val removedEdges = previousAdjacency.subtract(nextAdjacency).count()
@@ -92,12 +92,12 @@ object CCFScala {
   }
 
   /**
-   * Container for full CCF execution output.
+   * Conteneur pour la sortie complete d'execution CCF.
    */
   final case class RunResult(finalAdjacency: RDD[Edge], iterations: Int)
 
   /**
-   * Run CCF iterative loop until convergence or maxIterations.
+   * Execute la boucle iterative CCF jusqu'a convergence ou maxIterations.
    */
   def runCCF(
       edges: RDD[Edge],
@@ -105,7 +105,7 @@ object CCFScala {
       logProgress: Boolean = true
   ): RunResult = {
     var adjacency = buildInitialAdjacency(edges).cache()
-    adjacency.count() // materialize first cache
+    adjacency.count() // materialise le premier cache
 
     var iteration = 0
     var converged = false
@@ -132,8 +132,8 @@ object CCFScala {
   }
 
   /**
-   * Extract (node, componentId) from final adjacency:
-   * componentId is the minimum neighbor label for each node.
+   * Extrait (node, componentId) depuis l'adjacence finale:
+   * componentId est l'etiquette voisine minimale pour chaque noeud.
    */
   def extractComponents(finalAdjacency: RDD[Edge]): RDD[(Long, Long)] = {
     finalAdjacency
@@ -142,7 +142,7 @@ object CCFScala {
   }
 
   /**
-   * End-to-end helper.
+   * Helper de bout en bout.
    */
   def connectedComponents(
       edges: RDD[Edge],
@@ -154,11 +154,11 @@ object CCFScala {
   }
 
   /**
-   * CLI usage:
-   *   spark-submit CCFScala.scala <inputEdgesPath> [maxIterations]
+   * Utilisation CLI:
+   *   spark-submit --class CCFScala <jar> <inputEdgesPath> [maxIterations]
    *
-   * Input format:
-   *   one edge per line, separated by comma or whitespace, example:
+   * Format d'entree:
+   *   un arc par ligne, separe par virgule ou espace, exemple:
    *   1 2
    *   2,3
    */
@@ -181,7 +181,7 @@ object CCFScala {
         val parts = line.trim.split("[,\\s]+")
         require(
           parts.length >= 2,
-          s"Invalid edge line '$line'. Expected two numeric fields."
+          s"Ligne d'arc invalide '$line'. Deux champs numeriques sont attendus."
         )
         (parts(0).toLong, parts(1).toLong)
       }
