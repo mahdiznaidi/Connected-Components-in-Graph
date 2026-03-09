@@ -5,8 +5,8 @@ Exigences implementees:
 - tailles de graphe: 1_000, 10_000, 100_000, 500_000 noeuds
 - generation aleatoire avec NetworkX gnm_random_graph
 - metriques: temps d'execution et nombre d'iterations CCF
-- sortie CSV: benchmark_results.csv
-- sortie graphique: benchmark_plot.png
+- sortie CSV: outputs/benchmark_results.csv
+- sortie graphique: outputs/benchmark_plot.png
 """
 
 from __future__ import annotations
@@ -45,8 +45,9 @@ MAX_ITERATIONS = 30
 # Seed deterministe pour la reproductibilite.
 BASE_SEED = 42
 
-CSV_PATH = Path("benchmark_results.csv")
-PLOT_PATH = Path("benchmark_plot.png")
+DEFAULT_OUTPUT_DIR = Path("outputs")
+CSV_FILENAME = "benchmark_results.csv"
+PLOT_FILENAME = "benchmark_plot.png"
 
 
 @dataclass
@@ -190,10 +191,11 @@ def parse_sizes(raw: str) -> List[int]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Runner de benchmark CCF DataFrame.")
+    default_sizes = ",".join(str(s) for s in DEFAULT_GRAPH_SIZES)
     parser.add_argument(
         "--sizes",
-        default="1000,10000,100000,500000",
-        help="Tailles de noeuds separees par des virgules. Defaut: 1000,10000,100000,500000",
+        default=default_sizes,
+        help=f"Tailles de noeuds separees par des virgules. Defaut: {default_sizes}",
     )
     parser.add_argument(
         "--edge-factor",
@@ -223,12 +225,22 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Affiche les logs CCF a chaque iteration.",
     )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Dossier de sortie pour le CSV et le graphique. Defaut: outputs",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     graph_sizes = parse_sizes(args.sizes)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = output_dir / CSV_FILENAME
+    plot_path = output_dir / PLOT_FILENAME
     rows: List[BenchmarkRow] = []
 
     for idx, num_nodes in enumerate(graph_sizes):
@@ -298,12 +310,12 @@ def main() -> None:
                 except Exception:
                     pass
             # Persiste la progression intermediaire meme si une taille echoue.
-            write_csv(rows, CSV_PATH)
+            write_csv(rows, csv_path)
             gc.collect()
 
-    plot_results(rows, PLOT_PATH)
-    print(f"\nSaved CSV: {CSV_PATH.resolve()}")
-    print(f"Saved plot: {PLOT_PATH.resolve()}")
+    plot_results(rows, plot_path)
+    print(f"\nSaved CSV: {csv_path.resolve()}")
+    print(f"Saved plot: {plot_path.resolve()}")
 
 
 if __name__ == "__main__":

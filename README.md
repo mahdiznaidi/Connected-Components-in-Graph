@@ -18,8 +18,8 @@ Fichiers implementes:
 - `CCFScala.scala`: implementation CCF en Scala Spark RDD
 - `validate.py`: script de validation croisee (DataFrame vs RDD de reference, avec module RDD externe optionnel)
 - `benchmark_ccf.py`: script de benchmark de scalabilite avec `networkx.gnm_random_graph`
-- `benchmark_results.csv`: sortie benchmark (temps d'execution + iterations)
-- `benchmark_plot.png`: courbe de scalabilite
+- `outputs/benchmark_results.csv`: sortie benchmark (temps d'execution + iterations)
+- `outputs/benchmark_plot.png`: courbe de scalabilite
 
 ## Prerequis
 
@@ -53,8 +53,8 @@ python benchmark_ccf.py --sizes 1000,10000,100000,500000
 
 Sorties:
 
-- `benchmark_results.csv`
-- `benchmark_plot.png`
+- `outputs/benchmark_results.csv`
+- `outputs/benchmark_plot.png`
 
 ## Notes
 
