@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Artefacts de build Spark / Scala
+scala_out/
+.metals/
+.scala-build/
+
+# IDE / editeur
+.vscode/
+
+# Logs d'execution / dumps de crash
+hs_err_pid*.log
+replay_pid*.log
+
+# Archives locales / sorties compilees
+*.jar

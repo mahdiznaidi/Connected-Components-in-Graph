@@ -1,0 +1,5 @@
+﻿num_nodes,num_edges,iterations,elapsed_seconds,components,status,error
+1000,1200,5,20.714249,1000,ok,
+10000,12000,5,17.125038,10000,ok,
+100000,120000,7,30.469583,100000,ok,
+500000,600000,7,88.370000,500000,ok,
