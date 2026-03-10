@@ -18,7 +18,6 @@ with csv_file.open("r", encoding="utf-8") as f:
             nodes.append(int(row["num_nodes"]))
             times.append(float(row["elapsed_seconds"]))
             iterations.append(int(row["iterations"]))
-
 if not nodes:
     print("Aucune ligne valide à tracer.")
 else:
@@ -33,7 +32,6 @@ else:
         color="tab:blue",
         label="Execution time (s)"
     )
-
     ax1.set_xlabel("Number of nodes")
     ax1.set_ylabel("Execution time (seconds)", color="tab:blue")
     ax1.set_xscale("log")
