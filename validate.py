@@ -1,10 +1,10 @@
 """
-Script de validation croisee pour les implementations CCF.
+Script de validation croisée pour les implémentations CCF.
 
 Ce que ce script verifie:
 1) le resultat CCF DataFrame PySpark
-2) le resultat RDD Python de reference (meme logique algorithmique)
-3) une implementation RDD externe optionnelle (si module fourni)
+2) le résultat RDD Python de référence (même logique algorithmique)
+3) une implémentation RDD externe optionnelle (si module fourni)
 4) les composantes attendues sur un graphe jouet connu
 """
 
