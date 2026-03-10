@@ -113,13 +113,10 @@ object CCFScala {
     while (iteration < maxIterations && !converged) {
       val candidates = ccfIterate(adjacency)
       val dedupResult = ccfDedup(adjacency, candidates)
-
       adjacency.unpersist(blocking = false)
       adjacency = dedupResult.adjacency
-
       iteration += 1
       converged = dedupResult.converged
-
       if (logProgress) {
         println(
           s"[CCF-ScalaRDD] iteration=$iteration " +
